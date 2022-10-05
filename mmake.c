@@ -7,31 +7,56 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
-typedef struct flags {
+typedef struct flags{
 	bool s_flag; 
 	bool B_flag; 
+	bool first_time; 
 }flags; 
 
-void creating_targets (makefile* rules_recipes, const char* target, flags* flag_status); 
+void creation_of_targets(makefile* rules_recipes, const char* target, flags* flag_status); 
 bool check_files_existence(const char* file_name); 
 void print_cmd(rule* current_target, flags* flag_status);
 bool check_modifications(const char* target, const char* prereq); 
+void creates_new_process_executes_cmd(bool update_requires, bool file_existence, flags* flag_status, rule* make_rule); 
+makefile* read_rules_from_file(char* filename, FILE** fp, flags* flag_status, int argc, char** argv); 
 
 int main(int argc, char **argv){
 
-	int opt; 
 	FILE* fp; 
 	const char* target;
+
 	char* filename = NULL; 
 	flags* flag_status = calloc(sizeof(flags),1); 
+	
+	makefile* make = read_rules_from_file(filename,&fp,flag_status, argc, argv);
+	bool target_given = false;
 
-//TODOwhat would happen if we don't given s in command args.
+	for(int index = optind; index < argc; index++){
+		target = argv[index];
+		target_given = true;
+		creation_of_targets(make,argv[index],flag_status ); 
+		flag_status->first_time = false;
+	}
 
+	if(!target_given){
+		target = makefile_default_target(make); 
+		creation_of_targets(make,target,flag_status); 
+	}
+
+	fclose(fp);
+	free(flag_status);
+	makefile_del(make); 
+	exit(EXIT_SUCCESS); 
+	
+}
+
+makefile* read_rules_from_file(char* filename, FILE** fp, flags* flag_status, int argc, char** argv){
+
+	int opt; 
 	while ((opt = getopt(argc, argv, "Bf:s")) != -1){
 		switch (opt){
 			case 'f':
 				filename = optarg; 
-				//fp = fopen(filename, "r");
 				break;
 			case ':': 
 				printf("it requires argument\n");
@@ -50,92 +75,85 @@ int main(int argc, char **argv){
 		}
 	}
 	
-	fp = fopen(filename ? filename : "mmakefile.txt", "r");
+	*fp = fopen(filename ? filename : "mmakefile", "r");
+	makefile* make = parse_makefile(*fp); 
 
-	bool target_given = false;
-	makefile* make = parse_makefile(fp); 
-
-	for(int index = optind; index < argc; index++){
-		target = argv[index];
-		target_given = true;
-		creating_targets (make,argv[index],flag_status ); 
-	}
-
-	if(!target_given){
-		target = makefile_default_target(make); 
-		printf("%s\n", target);	
-		creating_targets (make,target,flag_status); 
-	}
-	
+	return make; 
 }
 
-void creating_targets (makefile* rules_recipes, const char* target, flags* flag_status){ 
 
-	if(makefile_rule(rules_recipes, target) == NULL){
+void creation_of_targets(makefile* rules_recipes, const char* target, flags* flag_status){ 
+
+	if(makefile_rule(rules_recipes, target) == NULL){ // base case
+		if(!flag_status->first_time){
+			fprintf(stderr, "there exists no rule for %s\n", target); 
+			flag_status->first_time = true;
+			exit(EXIT_FAILURE);
+		}
 		return;
 	}
 
 	else{		
 
-		int status;
-		rule* make_rule = makefile_rule(rules_recipes, target); 
+		rule* make_rule = makefile_rule(rules_recipes, target);
+		flag_status->first_time = true; 
+		//printf("size of make rule %ld\n",sizeof(make_rule)); 
 		const char** prerequisites = rule_prereq(make_rule); 
-		
-		struct stat target_status; 
-		stat(target, &target_status);
 		bool file_existence = check_files_existence(target);  
 
 		int index = 0; 
 		bool update_requires = false; 
+
 		while (prerequisites[index] != NULL){
-			creating_targets (rules_recipes, prerequisites[index], flag_status); 
-			//printf("target %s, file_existence %d\n", target, file_existence); 
-			struct stat prereq_status; 
-			stat(prerequisites[index], &prereq_status);
+			creation_of_targets(rules_recipes, prerequisites[index], flag_status); 
 			update_requires = check_modifications(target, prerequisites[index]);	
 			index++; 
 		}
 
-		if( update_requires == true || !file_existence || flag_status->B_flag == true){
-			
-			print_cmd(make_rule,flag_status);
+		creates_new_process_executes_cmd(update_requires,file_existence,flag_status,make_rule); 
+		
+	}
 
-			int pid = fork(); 
-			if(pid < 0){
-				perror("something went wrong with fork\n");
-				exit(EXIT_FAILURE); 
-			}
-			if(pid == 0){				
-				char** get_cmds = rule_cmd(make_rule);
-				if(execvp(get_cmds[0],get_cmds) < 0){
-					perror("execvp failed\n");
-					exit(EXIT_FAILURE);
-				}
-			}
-			if(pid > 0){
-				wait(&status);
-				if(WEXITSTATUS(status) != 0){
-					perror("WEXITSTATUS failed\n");
-					exit(EXIT_FAILURE);
-				}
+}
+
+void creates_new_process_executes_cmd(bool update_requires, bool file_existence, flags* flag_status, rule* make_rule){
+
+	int status;
+	if( update_requires|| !file_existence || flag_status->B_flag){
+			
+		print_cmd(make_rule,flag_status);
+
+		int pid = fork(); 
+		if(pid < 0){
+			perror("something went wrong with fork\n");
+			exit(EXIT_FAILURE); 
+		}
+		if(pid == 0){				
+			char** get_cmds = rule_cmd(make_rule);
+			if(execvp(get_cmds[0],get_cmds) < 0){
+				perror("execvp failed\n");
+				exit(EXIT_FAILURE);
 			}
 		}
-		else{
-			printf("everything is upToDate\n");
+		if(pid > 0){
+			wait(&status);
+			if(WEXITSTATUS(status) != 0){
+				perror("WEXITSTATUS failed\n");
+				exit(EXIT_FAILURE);
+			}
 		}
 	}
 
 }
 
+
 bool check_modifications(const char* target, const char* prereq){
 
 	struct stat st_target; 
-
 	stat(target, &st_target); 
 
 	struct stat st_prereq;
-
-	stat(prereq, &st_prereq);
+	stat(prereq, &st_prereq); 
 
 	if(st_target.st_mtime < st_prereq.st_mtime){
 		return true; 
