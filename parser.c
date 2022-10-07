@@ -1,12 +1,3 @@
-/**
- * Parser to parse a minimal makefile.  This file is provided to students along
- * with its header-file parser.h to solve the mmake laboration in the course C
- * Programming and Unix (5DV088).
- *
- * @file parse.h
- * @author Elias Åström, Fredrik Peteri
- * @date 2020-09-04
- */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>

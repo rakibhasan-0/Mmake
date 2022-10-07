@@ -1,8 +1,11 @@
-mexec: mexec.o parser.o
+mexec: mexec.o parser.o A.Test
 	gcc -o mexec mexec.o parser.o
 
-mexec.o: mexec.c
+mexec.o: mexec.c 
 	gcc -c mexec.c
+
+A.Test: a.Test
+	touch A.Test
 
 parser.o: parser.c
 	gcc -c parser.c
