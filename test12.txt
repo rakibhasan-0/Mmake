@@ -1,0 +1,11 @@
+ABC.test: A.test B.test C.test
+   touch ABC.test
+
+A.Test: a.test 
+   touch A.Test 
+
+B. Test: b.test D.test 
+   touch B.test 
+   
+D.Test: d.test 
+   touch D.Test

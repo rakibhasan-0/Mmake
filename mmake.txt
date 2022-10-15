@@ -1,11 +1,17 @@
-mexec: mexec.o parser.o A.Test
-	gcc -o mexec mexec.o parser.o
+ABC1.test: A1.test B1.test C1.test
+	touch ABC1.test
 
-mexec.o: mexec.c 
-	gcc -c mexec.c
+A1.test: a.test SHARED1.test
+	touch A1.test
 
-A.Test: a.Test
-	touch A.Test
+C1.test: c.test SHARED1.test
+	touch C1.test
 
-parser.o: parser.c
-	gcc -c parser.c
+D1.test: d.test SHARED1.test
+	touch D1.test
+
+B1.test: b.test D1.test
+	touch B1.test
+
+SHARED1.test: shared.test
+	touch SHARED1.test
