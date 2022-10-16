@@ -34,7 +34,8 @@ int main(int argc, char** argv){
 void* safe_malloc(size_t size, void* ptr) {
 	ptr = calloc(size,sizeof(ptr));
 	if(ptr == NULL){
-		return NULL;
+		perror("something went wrong with memory allocation\n");
+		exit(EXIT_FAILURE);
 	}
 	return ptr; 
 }
